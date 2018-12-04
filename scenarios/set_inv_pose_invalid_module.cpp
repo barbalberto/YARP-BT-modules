@@ -31,7 +31,7 @@ using namespace std;
 class SetInvPoseInvalid : public TickServer
 {
 private:
-    Bottle cmd, response;
+    Bottle cmd, response, value;
 public:
     yarp::os::Port blackboard_port;
 
@@ -45,7 +45,8 @@ public:
         response.clear();
         cmd.addString("set");
         cmd.addString("InvPoseValid");
-        cmd.addString("False");
+        value.addString("False");
+        cmd.append(value);
         blackboard_port.write(cmd,response);
         set_status(BT_SUCCESS);
         return BT_SUCCESS;

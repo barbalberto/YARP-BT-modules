@@ -29,24 +29,31 @@ class BlackBoard : public TickServer, public RFModule
 {
 
 private:
-    std::map<std::string, Value> bb;
+    std::map<std::string, Bottle> bb;
     yarp::os::Port blackboard_port; // a bb port to handle messages
 
 public:
     ReturnStatus request_tick(const std::string& params = "") override
     {
         ReturnStatus ret;
+        Bottle element = get(params);
 
-        if (get(params).asString() == "True")
+        if(element.size() ==1)
         {
-            ret = BT_SUCCESS;
+            if (element.get(0).asString() == "True")
+            {
+                ret = BT_SUCCESS;
+            }
+            else if (element.get(0).asString() == "False")
+            {
+                ret = BT_FAILURE;
+            }
+            else ret = BT_ERROR;
         }
-        else if (get(params).asString() == "False")
+        else
         {
-            ret = BT_FAILURE;
+            yError() << "The blackboard can be ticked to return only Values!";
         }
-        else ret = BT_ERROR;
-
         ReturnStatusVocab a;
         yInfo() << "Request_tick got  params " << params << " replying with " << a.toString((int)ret);
         //std::this_thread::sleep_for( std::chrono::seconds(3));
@@ -69,12 +76,22 @@ public:
         return ret;
     }
 
-    bool set(std::string key, Value value)
+//    bool set(std::string key, Value value)
+//    {
+//        yInfo() << "setting value " << value.asString();
+
+//        bb[key].add(value);
+//    }
+
+    bool set(std::string key, Bottle bottle)
     {
-        bb[key] = value;
+        yInfo() << "setting bottle " << bottle.toString();
+
+        bb[key] = bottle;
     }
 
-    Value  get(std::string key)
+
+    Bottle  get(std::string key)
     {
         return bb[key];
     }
@@ -100,8 +117,10 @@ public:
             std::string key;
 
             key  = command.get(1).asString();
-            Value value = command.get(2);
-            set(key,value);
+            Bottle* bottle = command.get(2).asList();
+
+            yInfo()<< "setting bottle" << bottle->toString();
+            set(key,*bottle);
             reply.addInt(1);//TODO add sanity check here
 
         }
@@ -110,12 +129,12 @@ public:
             //request to get a value from the blackboard
 
             std::string key;
-            Value value;
+            Bottle bottle;
 
             key  = command.get(1).asString();
-            value = get(key);
+            bottle = get(key);
 
-            reply.add(value);
+            reply.append(bottle);
         }
         else if (command.get(0).asString() == "help")
         {
@@ -201,12 +220,14 @@ int main(int argc, char * argv[])
 
     // initialize blackboard
 
-    blackboard.set("BottleGrasped", Value("False"));
-    blackboard.set("InvPoseComputed", Value("False"));
-    blackboard.set("InvPoseValid", Value("False"));
-    blackboard.set("InvPose", Value("000"));
-
-
+    blackboard.set("BottleGrasped", Bottle("False"));
+    blackboard.set("InvPoseComputed", Bottle("False"));
+    blackboard.set("InvPoseValid", Bottle("True"));
+    Bottle inv_pose;
+    inv_pose.addDouble(-2);
+    inv_pose.addDouble(-3);
+    inv_pose.addDouble(-180);
+    blackboard.set("InvPose", inv_pose);
     blackboard.runModule(rf);
 
 
