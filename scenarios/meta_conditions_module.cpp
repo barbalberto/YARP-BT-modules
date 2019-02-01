@@ -36,6 +36,9 @@ public:
     // object localization
     RpcClient object_properties_collector_port; //todo make private
 
+    // object grasped
+    RpcClient grasp_detector_port; //todo make private
+
 private:
     Bottle cmd, response;
 
@@ -72,6 +75,19 @@ public:
             else yWarning() << "ObjectLocatedWithConfidenceX called without confidence argument, will use" << confidence << "as default";
 
             ret = this->processObjectLocatedWithConfidenceX(objectName, confidence);
+        }
+        else if(paramsList.get(0).asString() == "ObjectGrasped")
+        {
+            std::string hand = "both";
+            if(paramsList.size() > 1) hand = paramsList.get(1).asString();
+            else yWarning() << "ObjectGrasped called without hand argument, will use \"both\" as default";
+
+            if(hand!="both" && hand!="either" && hand!="left" && hand!="right" )
+            {
+                yError() << "ObjectGrasped called with invalid hand argument";
+                ret = BT_FAILURE;
+            }
+            else ret = this->processObjectGrasped(hand);
         }
 
 // Not used, we will tick directly the blackboard
@@ -216,6 +232,63 @@ public:
 
         return BT_SUCCESS;
     }
+
+    ReturnStatus processObjectGrasped(const std::string hand= "either")
+    {
+        if(grasp_detector_port.getOutputCount()<1)
+        {
+            yError() << "No connection to grasping-detector module";
+            return BT_FAILURE;
+        }
+
+        bool objectGraspedLeft = false;
+        bool objectGraspedRight = false;
+
+        if(hand=="left" || hand=="both" || hand=="either")
+        {
+            Bottle cmd;
+            cmd.addString("IsObjectGraspedLeft");
+
+            Bottle reply;
+            yDebug() << "write" << hand << grasp_detector_port.write(cmd, reply);
+
+            if(reply.size() != 1)
+            {
+                yError() << "invalid answer from grasping-detector module: wrong size: " << reply.toString();
+                return BT_FAILURE;
+            }
+
+            objectGraspedLeft = (reply.get(0).asVocab() == Vocab::encode("ok"));
+        }
+
+        if(hand=="right" || hand=="both" || hand=="either")
+        {
+            Bottle cmd;
+            cmd.addString("IsObjectGraspedRight");
+
+            Bottle reply;
+            yDebug() << "write" << hand << grasp_detector_port.write(cmd, reply);
+
+            if(reply.size() != 1)
+            {
+                yError() << "invalid answer from grasping-detector module: wrong size: " << reply.toString();
+                return BT_FAILURE;
+            }
+
+            objectGraspedRight = (reply.get(0).asVocab() == Vocab::encode("ok"));
+        }
+
+        if(hand=="left" && objectGraspedLeft)
+            return BT_SUCCESS;
+        else if(hand=="right" && objectGraspedRight)
+            return BT_SUCCESS;
+        else if(hand=="both" && (objectGraspedLeft && objectGraspedRight))
+            return BT_SUCCESS;
+        else if(hand=="either" && (objectGraspedLeft || objectGraspedRight))
+            return BT_SUCCESS;
+        else
+            return BT_FAILURE;
+    }
 };
 
 int main(int argc, char * argv[])
@@ -232,6 +305,7 @@ int main(int argc, char * argv[])
     skill.configure_tick_server("/metaconditions");
     skill.blackboard_port.open("/metaconditions/blackboard/rpc:o");
     skill.object_properties_collector_port.open("/metaconditions/objectPropertiesCollector/rpc:o");
+    skill.grasp_detector_port.open("/metaconditions/grasp-detector/rpc:o");
 /*
     std::cout << "Action ready. To send commands to the action, open and type: yarp rpc /metaconditions/tick:i,"
               <<" then type help to find the available commands "
