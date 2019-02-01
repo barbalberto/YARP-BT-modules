@@ -28,21 +28,29 @@ using namespace yarp::os;
 
 class MetaConditions : public TickServer
 {
-public:
+private:
 
     // blackboard
-    yarp::os::Port blackboard_port; //todo make private
+    yarp::os::Port blackboard_port;
 
     // object localization
-    RpcClient object_properties_collector_port; //todo make private
+    RpcClient object_properties_collector_port;
 
     // object grasped
-    RpcClient grasp_detector_port; //todo make private
+    RpcClient grasp_detector_port;
 
-private:
     Bottle cmd, response;
 
 public:
+
+    MetaConditions() : TickServer()
+    {
+        this->configure_tick_server("/metaconditions");
+        blackboard_port.open("/metaconditions/blackboard/rpc:o");
+        object_properties_collector_port.open("/metaconditions/objectPropertiesCollector/rpc:o");
+        grasp_detector_port.open("/metaconditions/grasp-detector/rpc:o");
+    }
+
     ReturnStatus request_tick(const std::string& params = "") override
     {
         Bottle paramsList;
@@ -302,10 +310,6 @@ int main(int argc, char * argv[])
     }
 
     MetaConditions skill;
-    skill.configure_tick_server("/metaconditions");
-    skill.blackboard_port.open("/metaconditions/blackboard/rpc:o");
-    skill.object_properties_collector_port.open("/metaconditions/objectPropertiesCollector/rpc:o");
-    skill.grasp_detector_port.open("/metaconditions/grasp-detector/rpc:o");
 /*
     std::cout << "Action ready. To send commands to the action, open and type: yarp rpc /metaconditions/tick:i,"
               <<" then type help to find the available commands "
