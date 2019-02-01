@@ -17,8 +17,6 @@
 //YARP imports
 #include <yarp/os/Network.h>    // for yarp::os::Network
 #include <yarp/os/LogStream.h>  // for yError()
-#include <yarp/os/Port.h>
-#include <yarp/os/BufferedPort.h>
 #include <yarp/os/RpcClient.h>
 
 //behavior trees imports
@@ -32,7 +30,7 @@ private:
 
     // blackboard
     Mutex blackboard_mutex;
-    yarp::os::Port blackboard_port;
+    RpcClient blackboard_port;
 
     // object localization
     Mutex object_properties_collector_mutex;
@@ -41,8 +39,6 @@ private:
     // object grasped
     Mutex grasp_detector_mutex;
     RpcClient grasp_detector_port;
-
-    Bottle cmd, response;
 
 public:
 
@@ -59,17 +55,17 @@ public:
         Bottle paramsList;
         paramsList.fromString(params);
 
-        cmd.clear();
-        response.clear();
         ReturnStatus ret;
         if(paramsList.get(0).asString() == "AtInvPose")
         {
+            Bottle cmd;
             cmd.addString("get");
             cmd.addString("InvPose");
+            Bottle reply;
             blackboard_mutex.lock();
-            blackboard_port.write(cmd,response);
+            blackboard_port.write(cmd,reply);
             blackboard_mutex.unlock();
-            std::string inv_pose =  response.get(0).asString();
+            std::string inv_pose =  reply.get(0).asString();
             yInfo() << "InvPose is" << inv_pose;
             // code to check if the robot is in a neigborhood of the inv_pose.
             // **TODO** read from the localization system the robot's positon  check if the robot is in a neigborhood of the inv_pose.
@@ -144,7 +140,6 @@ public:
         }
         ReturnStatusVocab a;
         yInfo() << "Request_tick got  params " << params << " replying with " << a.toString((int)ret);
-        std::this_thread::sleep_for( std::chrono::seconds(3));
         return ret;
     }
 
@@ -268,7 +263,7 @@ public:
 
             Bottle reply;
             grasp_detector_mutex.lock();
-            yDebug() << "write" << hand << grasp_detector_port.write(cmd, reply);
+            grasp_detector_port.write(cmd, reply);
             grasp_detector_mutex.unlock();
 
             if(reply.size() != 1)
@@ -287,7 +282,7 @@ public:
 
             Bottle reply;
             grasp_detector_mutex.lock();
-            yDebug() << "write" << hand << grasp_detector_port.write(cmd, reply);
+            grasp_detector_port.write(cmd, reply);
             grasp_detector_mutex.unlock();
 
             if(reply.size() != 1)
@@ -323,11 +318,14 @@ int main(int argc, char * argv[])
     }
 
     MetaConditions skill;
-/*
-    std::cout << "Action ready. To send commands to the action, open and type: yarp rpc /metaconditions/tick:i,"
-              <<" then type help to find the available commands "
-              << std::endl;
-*/
+
+    yInfo() << "Meta-conditions ready.\n \
+                To send commands to the meta-conditions, open and type: yarp rpc /metaconditions/tick:i\n \
+                Available parameters for request_tick:\n \
+                * request_tick \"AtInvPose\" \n \
+                * request_tick \"ObjectLocatedWithConfidenceX <objectname> <confidence>\" \n \
+                * request_tick \"ObjectGrasped <hand>\"";
+
     while (true)
     {
         std::this_thread::sleep_for( std::chrono::seconds(10));
