@@ -31,12 +31,15 @@ class MetaConditions : public TickServer
 private:
 
     // blackboard
+    Mutex blackboard_mutex;
     yarp::os::Port blackboard_port;
 
     // object localization
+    Mutex object_properties_collector_mutex;
     RpcClient object_properties_collector_port;
 
     // object grasped
+    Mutex grasp_detector_mutex;
     RpcClient grasp_detector_port;
 
     Bottle cmd, response;
@@ -63,7 +66,9 @@ public:
         {
             cmd.addString("get");
             cmd.addString("InvPose");
+            blackboard_mutex.lock();
             blackboard_port.write(cmd,response);
+            blackboard_mutex.unlock();
             std::string inv_pose =  response.get(0).asString();
             yInfo() << "InvPose is" << inv_pose;
             // code to check if the robot is in a neigborhood of the inv_pose.
@@ -171,7 +176,9 @@ public:
         cmd.fromString("ask ((name == "+objectName+"))");
 
         Bottle reply;
+        object_properties_collector_mutex.lock();
         object_properties_collector_port.write(cmd, reply);
+        object_properties_collector_mutex.unlock();
 
         if(reply.size() != 2)
         {
@@ -202,7 +209,9 @@ public:
         cmd.clear();
         cmd.fromString("get (id "+objectIDlist->get(0).toString()+")");
 
+        object_properties_collector_mutex.lock();
         object_properties_collector_port.write(cmd, reply);
+        object_properties_collector_mutex.unlock();
 
         if(reply.size() != 2)
         {
@@ -258,7 +267,9 @@ public:
             cmd.addString("IsObjectGraspedLeft");
 
             Bottle reply;
+            grasp_detector_mutex.lock();
             yDebug() << "write" << hand << grasp_detector_port.write(cmd, reply);
+            grasp_detector_mutex.unlock();
 
             if(reply.size() != 1)
             {
@@ -275,7 +286,9 @@ public:
             cmd.addString("IsObjectGraspedRight");
 
             Bottle reply;
+            grasp_detector_mutex.lock();
             yDebug() << "write" << hand << grasp_detector_port.write(cmd, reply);
+            grasp_detector_mutex.unlock();
 
             if(reply.size() != 1)
             {
